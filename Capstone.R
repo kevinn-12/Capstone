@@ -28,7 +28,7 @@ dat <- dat %>%
 dat <- dat %>%
         group_by(., doc_id) %>%
         summarise(., text = Reduce(paste, text)) %>%
-        mutate(., language = sub("\\..*", "", doc_id)) %>%
+        mutate(., language = gsub("(?:.*/){2}([^_]+)_.*", "\\1", doc_id)) %>%
         as.data.frame(.) %>%
         DataframeSource(.) %>%
         VCorpus(.)
@@ -50,7 +50,7 @@ top_words <- dat %>%
 
 top_words <- top_words %>%
         gather(., Word, Frequency, 2:ncol(top_words)) %>%
-        mutate(., Language = str_extract(Doc, "[^.]+")) %>%
+        mutate(., Language = ifelse(str_extract(Doc, "[^.]+") == "US", "EN", str_extract(Doc, "[^.]+"))) %>%
         mutate_if(., is.character, as.factor) %>%
         group_by(., Language, Word) %>%
         summarise(., Frequency = sum(Frequency)) %>%
