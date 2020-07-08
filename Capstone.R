@@ -1,5 +1,5 @@
 library(stringr); library(tm); library(dplyr); library(tibble); library(reshape); library(caret); library(RWeka); library(LaF)
-library(jsonlite); library(purrr); library(data.table); library(tidyr); library(ggplot2); library(textcat)
+library(jsonlite); library(purrr); library(data.table); library(tidyr); library(ggplot2); library(textcat); library(tidytext)
 
 # Importing and CLeaning Data
 if (! file.exists("Coursera-SwiftKey.zip")) {
@@ -28,7 +28,7 @@ dat_all <- dat_all %>%
 
 lang <- unique(gsub("(?:.*/){2}([^_]+)_.*", "\\1", files))
 token <- function(x) {
-        NGramTokenizer(x, Weka_control(min = 2, max = 4))
+        NGramTokenizer(x, Weka_control(min = 1, max = 4))
 }
 
 for (i in 1:length(lang)) {
@@ -46,6 +46,7 @@ for (i in 1:length(lang)) {
                        tm_map(., content_transformer(stripWhitespace)) %>%
                        tm_map(., content_transformer(PlainTextDocument)) %>%
                        tm_map(., removeWords, stopwords(kind = lang[i])) %>%
+                       tm_map(., stemDocument, lang[i]) %>%
                        DocumentTermMatrix(., control = list(tokenize = token)) %>%
                        removeSparseTerms(., 0.99) %>%
                        as.matrix(.) %>%
@@ -65,27 +66,46 @@ rm(corpus_de, corpus_en, corpus_fi, corpus_ru)
 
 dat_all <- dat_all %>%
         mutate(., N_gram = str_count(Word, "\\S+"))
-
         
 # Exploratory Analysis 
-top_words_all <- n_gram_all %>%
-        as.matrix(.) %>%
-        as.data.frame(.) %>%
-        rownames_to_column(., var = "Doc")
 
-top_words_all <- top_words_all %>%
-        gather(., Word, Frequency, 2:ncol(top_words_all)) %>%
-        mutate(., Language = ifelse(str_extract(Doc, "[^.]+") == "US", "EN", str_extract(Doc, "[^.]+"))) %>%
-        mutate_if(., is.character, as.factor) %>%
-        group_by(., Language, Word) %>%
-        summarise(., Frequency = sum(Frequency)) %>%
-        data.frame(.) %>%
-        group_by(., Language) %>%
-        top_n(., 10, Frequency) %>%
-        data_frame(.)
+gram1.plot <- ggplot(dat_all %>% 
+                                subset(., N_gram == 1) %>% 
+                                group_by(., Language) %>%
+                                top_n(., 10, Frequency), 
+                        aes(x = reorder_within(Word, -Frequency, Language), y = Frequency, fill = Language)) + 
+        geom_bar(stat="identity", position="dodge") + facet_wrap(~ Language, ncol = 4, scales='free_x') + theme_bw() + 
+        labs(title = "1-gram: Top 10 Words by Language", x = "Words") + scale_x_reordered() + 
+        theme(axis.text.x = element_text(angle = 45,hjust = 1))
+gram1.plot 
 
-freq.plot_all <- ggplot(top_words_all, aes(x = reorder(Word, -Frequency), y = Frequency, fill = Language)) + 
-        geom_bar(stat="identity", position="dodge") + facet_wrap(~ Language, ncol = 2, scales='free_x') + theme_bw() + 
-        labs(title = "Top 10 Words by Language", x = "Words")
-freq.plot_all 
+gram2.plot <- ggplot(dat_all %>% 
+                             subset(., N_gram == 2) %>% 
+                             group_by(., Language) %>%
+                             top_n(., 10, Frequency), 
+                     aes(x = reorder_within(Word, -Frequency, Language), y = Frequency, fill = Language)) + 
+        geom_bar(stat="identity", position="dodge") + facet_wrap(~ Language, ncol = 4, scales='free_x') + theme_bw() + 
+        labs(title = "2-gram: Top 10 Words by Language", x = "Words") + scale_x_reordered() +
+        theme(axis.text.x = element_text(angle = 45,hjust = 1))
+gram2.plot
+
+gram3.plot <- ggplot(dat_all %>% 
+                             subset(., N_gram == 3) %>% 
+                             group_by(., Language) %>%
+                             top_n(., 10, Frequency), 
+                     aes(x = reorder_within(Word, -Frequency, Language), y = Frequency, fill = Language)) + 
+        geom_bar(stat="identity", position="dodge") + facet_wrap(~ Language, ncol = 4, scales='free_x') + theme_bw() + 
+        labs(title = "3-gram: Top 10 Words by Language", x = "Words") + scale_x_reordered() +
+        theme(axis.text.x = element_text(angle = 90,hjust = 1))
+gram3.plot
+
+gram4.plot <- ggplot(dat_all %>% 
+                             subset(., N_gram == 4) %>% 
+                             group_by(., Language) %>%
+                             top_n(., 10, Frequency), 
+                     aes(x = reorder_within(Word, -Frequency, Language), y = Frequency, fill = Language)) + 
+        geom_bar(stat="identity", position="dodge") + facet_wrap(~ Language, ncol = 4, scales='free_x') + theme_bw() + 
+        labs(title = "3-gram: Top 10 Words by Language", x = "Words") + scale_x_reordered() +
+        theme(axis.text.x = element_text(angle = 90,hjust = 1))
+gram4.plot
 
