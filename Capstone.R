@@ -43,9 +43,12 @@ for (i in 1:length(lang)) {
                        tm_map(., content_transformer(removePunctuation)) %>%
                        tm_map(., content_transformer(removeNumbers)) %>%
                        tm_map(., content_transformer(stripWhitespace)) %>%
+                       tm_map(., content_transformer(gsub), pattern="\\W",replace=" ") %>%
+                       tm_map(., content_transformer(function(.) gsub("http[^[:space:]]*", "", .))) %>%
+                       tm_map(., content_transformer(function(.) gsub("[^[:alpha:][:space:]]*", "", .))) %>%
+                       #tm_map(., removeWords, stopwords(kind = lang[i])) %>% they play an important part in language  
+                       #tm_map(., stemDocument, lang[i]) %>% will make evaluation harder
                        tm_map(., content_transformer(PlainTextDocument)) %>%
-                       tm_map(., removeWords, stopwords(kind = lang[i])) %>%
-                       tm_map(., stemDocument, lang[i]) %>%
                        DocumentTermMatrix(., control = list(tokenize = token)) %>%
                        removeSparseTerms(., 0.99) %>%
                        as.matrix(.) %>%
@@ -69,11 +72,13 @@ rm(corpus_de, corpus_en, corpus_fi, corpus_ru)
 
 training <- dat_all %>%
         group_by(., Language, N_gram) %>%
-        sample_frac(., 0.75)
+        sample_frac(., 0.75) %>%
+        data.frame(.)
 
 test <- dat_all %>%
         group_by(., Language, N_gram) %>%
-        sample_frac(., 0.25)
+        sample_frac(., 0.25) %>%
+        data.frame(.)
         
 # Exploratory Analysis 
 
@@ -118,3 +123,28 @@ gram4.plot <- training %>%
 gram4.plot 
 
 # Predictive Model
+
+## Ngram Model
+NextWordPrediction <- function(input) {
+        dat <- training %>%
+                subset(., N_gram == str_count(input, "\\S+") + 1) %>%
+                filter(grepl(paste("^", tolower(str_squish(input)), sep = ""), Word)) %>%
+                arrange(., desc(Frequency))
+        if (nrow(dat) != 0) {
+                # assign("training", training %>%
+                #         subset(., N_gram == str_count(input, "\\S+")) %>%
+                #         filter(grepl(paste("^", tolower(input), sep = ""), Word)) %>%
+                #         arrange(., desc(Frequency)) %>%
+                #         mutate(., Frequency = replace(Frequency, Frequency == max(Frequency), Frequency + 1)),
+                #        envir = .GlobalEnv)
+                
+                val <- str_split(dat$Word[1], " ", simplify = T)[1, eval(str_count(input, "\\S+") + 1)]
+                paste(str_squish(input), val)
+        } else {
+                # training <- training %>%
+                #         add_row(., Word = tolower(input), Frequency = 1, N_gram = str_count(input, "\\S+"))
+                print("Word not in dictionary")
+        }
+}
+
+NextWordPrediction("hello")
