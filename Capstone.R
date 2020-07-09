@@ -9,7 +9,7 @@ if (! file.exists("Coursera-SwiftKey.zip")) {
 
 files <- list.files(pattern = "\\.txt$", recursive = T)
 
-set.seed(123)
+set.seed(133)
 for (i in 1:length(files)) {
         assign(files[i], sample_lines(files[i], 1000))
 }
@@ -18,10 +18,9 @@ dat_all <- c(mget(unlist(files)))
 
 rm(list = files)
 
-dat_all <- map(dat_all, as.data.frame)
-dat_all <- rbindlist(dat_all, fill = T, idcol = T)
-
 dat_all <- dat_all %>%
+        map(., as.data.frame) %>%
+        rbindlist(., fill = T, idcol = T) %>%
         dplyr::rename(., doc_id = .id, text = `.x[[i]]`) %>%
         mutate(., doc_id = as.factor(sub(".*\\_ *(.*?) *.txt*", "\\1", doc_id)),
                language = ifelse(str_extract(doc_id, "[^.]+") == "US", "EN", str_extract(doc_id, "[^.]+")))
@@ -61,51 +60,61 @@ for (i in 1:length(lang)) {
         )
 }
 
-dat_all <- reshape::merge_all(list(corpus_de, corpus_en, corpus_fi, corpus_ru))
+dat_all <- reshape::merge_all(list(corpus_de, corpus_en, corpus_fi, corpus_ru)) %>%
+        mutate(., N_gram = str_count(Word, "\\S+"))
+
 rm(corpus_de, corpus_en, corpus_fi, corpus_ru)
 
-dat_all <- dat_all %>%
-        mutate(., N_gram = str_count(Word, "\\S+"))
+# Training and Test Data
+
+training <- dat_all %>%
+        group_by(., Language, N_gram) %>%
+        sample_frac(., 0.75)
+
+test <- dat_all %>%
+        group_by(., Language, N_gram) %>%
+        sample_frac(., 0.25)
         
 # Exploratory Analysis 
 
-gram1.plot <- ggplot(dat_all %>% 
-                                subset(., N_gram == 1) %>% 
-                                group_by(., Language) %>%
-                                top_n(., 10, Frequency), 
-                        aes(x = reorder_within(Word, -Frequency, Language), y = Frequency, fill = Language)) + 
+gram1.plot <- training %>%
+        subset(., N_gram == 1) %>% 
+        group_by(., Language) %>%
+        top_n(., 10, Frequency) %>%
+        ggplot(., aes(x = reorder_within(Word, -Frequency, Language), y = Frequency, fill = Language)) + 
         geom_bar(stat="identity", position="dodge") + facet_wrap(~ Language, ncol = 4, scales='free_x') + theme_bw() + 
         labs(title = "1-gram: Top 10 Words by Language", x = "Words") + scale_x_reordered() + 
         theme(axis.text.x = element_text(angle = 45,hjust = 1))
 gram1.plot 
 
-gram2.plot <- ggplot(dat_all %>% 
-                             subset(., N_gram == 2) %>% 
-                             group_by(., Language) %>%
-                             top_n(., 10, Frequency), 
-                     aes(x = reorder_within(Word, -Frequency, Language), y = Frequency, fill = Language)) + 
+gram2.plot <- training %>%
+        subset(., N_gram == 2) %>% 
+        group_by(., Language) %>%
+        top_n(., 10, Frequency) %>%
+        ggplot(., aes(x = reorder_within(Word, -Frequency, Language), y = Frequency, fill = Language)) + 
         geom_bar(stat="identity", position="dodge") + facet_wrap(~ Language, ncol = 4, scales='free_x') + theme_bw() + 
-        labs(title = "2-gram: Top 10 Words by Language", x = "Words") + scale_x_reordered() +
+        labs(title = "2-gram: Top 10 Words by Language", x = "Words") + scale_x_reordered() + 
         theme(axis.text.x = element_text(angle = 45,hjust = 1))
-gram2.plot
+gram2.plot 
 
-gram3.plot <- ggplot(dat_all %>% 
-                             subset(., N_gram == 3) %>% 
-                             group_by(., Language) %>%
-                             top_n(., 10, Frequency), 
-                     aes(x = reorder_within(Word, -Frequency, Language), y = Frequency, fill = Language)) + 
+gram3.plot <- training %>%
+        subset(., N_gram == 3) %>% 
+        group_by(., Language) %>%
+        top_n(., 10, Frequency) %>%
+        ggplot(., aes(x = reorder_within(Word, -Frequency, Language), y = Frequency, fill = Language)) + 
         geom_bar(stat="identity", position="dodge") + facet_wrap(~ Language, ncol = 4, scales='free_x') + theme_bw() + 
-        labs(title = "3-gram: Top 10 Words by Language", x = "Words") + scale_x_reordered() +
-        theme(axis.text.x = element_text(angle = 90,hjust = 1))
-gram3.plot
+        labs(title = "3-gram: Top 10 Words by Language", x = "Words") + scale_x_reordered() + 
+        theme(axis.text.x = element_text(angle = 45,hjust = 1))
+gram3.plot 
 
-gram4.plot <- ggplot(dat_all %>% 
-                             subset(., N_gram == 4) %>% 
-                             group_by(., Language) %>%
-                             top_n(., 10, Frequency), 
-                     aes(x = reorder_within(Word, -Frequency, Language), y = Frequency, fill = Language)) + 
+gram4.plot <- training %>%
+        subset(., N_gram == 4) %>% 
+        group_by(., Language) %>%
+        top_n(., 10, Frequency) %>%
+        ggplot(., aes(x = reorder_within(Word, -Frequency, Language), y = Frequency, fill = Language)) + 
         geom_bar(stat="identity", position="dodge") + facet_wrap(~ Language, ncol = 4, scales='free_x') + theme_bw() + 
-        labs(title = "3-gram: Top 10 Words by Language", x = "Words") + scale_x_reordered() +
-        theme(axis.text.x = element_text(angle = 90,hjust = 1))
-gram4.plot
+        labs(title = "4-gram: Top 10 Words by Language", x = "Words") + scale_x_reordered() + 
+        theme(axis.text.x = element_text(angle = 45,hjust = 1))
+gram4.plot 
 
+# Predictive Model
