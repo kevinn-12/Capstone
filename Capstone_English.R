@@ -1,5 +1,5 @@
 library(stringr); library(tm); library(dplyr); library(tibble); library(reshape); library(caret); library(RWeka); library(LaF)
-library(jsonlite); library(purrr); library(data.table); library(tidyr); library(ggplot2); library(textcat); library(tidytext)
+library(jsonlite); library(purrr); library(data.table); library(tidyr); library(ggplot2); library(textcat); library(tidytext): library(qdap)
 
 # Importing and CLeaning Data
 if (! file.exists("Coursera-SwiftKey.zip")) {
@@ -24,11 +24,25 @@ dat_all <- dat_all %>%
         dplyr::rename(., doc_id = .id, text = `.x[[i]]`) %>%
         mutate(., doc_id = as.factor(sub(".*\\_ *(.*?) *.txt*", "\\1", doc_id)))
 
+# Training and Test Data
+
+training <- dat_all %>%
+        sample_frac(., 0.75) %>%
+        data.frame(.)
+
+test <- dat_all %>%
+        sample_frac(., 0.25) %>%
+        data.frame(.)
+
+rm(dat_all)
+
+# Model
+
 token <- function(x) {
-        NGramTokenizer(x, Weka_control(min = 2, max = 4))
+        NGramTokenizer(x, Weka_control(min = 1, max = 4))
 }
 
-dat_all <- dat_all %>%
+training <- training %>%
         as.data.frame(.) %>%
         DataframeSource(.) %>%
         VCorpus(., readerControl = list(language = "en")) %>%
@@ -49,18 +63,7 @@ dat_all <- dat_all %>%
         mutate(., N_gram = str_count(Word, "\\S+")) %>%
         group_by(., N_gram) %>%
         mutate(., Prop = Frequency/ sum(Frequency),
-               Word_to_Predict = word(Word, -1))
-
-# Training and Test Data
-
-training <- dat_all %>%
-        group_by(., N_gram) %>%
-        sample_frac(., 0.75) %>%
-        data.frame(.)
-
-test <- dat_all %>%
-        group_by(., N_gram) %>%
-        sample_frac(., 0.25) %>%
+               Word_to_Predict = word(Word, -1)) %>%
         data.frame(.)
 
 
@@ -72,23 +75,38 @@ NextWordPrediction <- function(input) {
                 filter(., N_gram == str_count(input, "\\S+") + 1) %>%
                 filter(grepl(paste("^", tolower(str_squish(input)), sep = ""), Word)) %>%
                 arrange(., desc(Prop))
+        
         if (nrow(dat) != 0) {
-                # assign("training", training %>%
-                #         subset(., N_gram == str_count(input, "\\S+")) %>%
-                #         filter(grepl(paste("^", tolower(input), sep = ""), Word)) %>%
-                #         arrange(., desc(Frequency)) %>%
-                #         mutate(., Frequency = replace(Frequency, Frequency == max(Frequency), Frequency + 1)),
-                #        envir = .GlobalEnv)
+                assign("training",
+                       training %>%
+                               mutate(Frequency = ifelse(Word == "she was" &
+                                                                 N_gram == 2, 
+                                                         Frequency + 1,
+                                                         Frequency)) %>%
+                               group_by(., N_gram) %>%
+                               mutate(., Prop = Frequency/ sum(Frequency)) %>%
+                               data.frame(.),
+                       envir = .GlobalEnv)
                 
                 val <- dat$Word_to_Predict[1]
                 ans <- paste(str_squish(input), val)
+                
                 return(list(ans, head(dat,5)))
-        } else {
-                # training <- training %>%
-                #         add_row(., Word = tolower(input), Frequency = 1, N_gram = str_count(input, "\\S+"))
-                ans <- paste("Word not in dictionary")
+                
+        } else if (nrow(dat) == 0) {
+                input_1 <-  Reduce(paste, word(input, 2:str_count(input,"\\S+")))
+                
+                return(NextWordPrediction(input_1)) 
+                
+        } else if (word(input, 1) == "NA") {
+                assign("training",
+                       training %>%
+                               add_row(., Word = tolower(input), Frequency = 1, N_gram = str_count(input, "\\S+")),
+                       envir = .GlobalEnv)
+                ans <- paste("Word not in dictionary. We added this to our database!")
                 return(ans)
         }
 }
 
-NextWordPrediction("love your")
+NextWordPrediction("she was great tho days later")
+
