@@ -79,8 +79,8 @@ NextWordPrediction <- function(input) {
         if (nrow(dat) != 0) {
                 assign("training",
                        training %>%
-                               mutate(Frequency = ifelse(Word == "she was" &
-                                                                 N_gram == 2, 
+                               mutate(Frequency = ifelse(Word == input &
+                                                                 N_gram == str_count(input, "\\S+"),
                                                          Frequency + 1,
                                                          Frequency)) %>%
                                group_by(., N_gram) %>%
@@ -93,20 +93,26 @@ NextWordPrediction <- function(input) {
                 
                 return(list(ans, head(dat,5)))
                 
-        } else if (nrow(dat) == 0) {
-                input_1 <-  Reduce(paste, word(input, 2:str_count(input,"\\S+")))
-                
-                return(NextWordPrediction(input_1)) 
-                
-        } else if (word(input, 1) == "NA") {
+        } else if (nrow(dat) == 0 & word(input, 1) != "NA") {
                 assign("training",
                        training %>%
-                               add_row(., Word = tolower(input), Frequency = 1, N_gram = str_count(input, "\\S+")),
+                               add_row(., Word = tolower(input), Frequency = + 1, N_gram = str_count(input, "\\S+"), 
+                                       Word_to_Predict = word(input, -1)) %>%
+                               group_by(., N_gram) %>%
+                               mutate(., Prop = Frequency/ sum(Frequency)) %>%
+                               data.frame(.),
                        envir = .GlobalEnv)
+                
+                input_1 <-  Reduce(paste, word(input, 2:str_count(input,"\\S+")))
+                
+                return(NextWordPrediction(input_1))
+                
+        } else if (word(input, 1) == "NA") {
                 ans <- paste("Word not in dictionary. We added this to our database!")
+                
                 return(ans)
         }
 }
 
-NextWordPrediction("she was great tho days later")
+NextWordPrediction("she was")
 
