@@ -21,13 +21,13 @@ shinyUI(fluidPage(
                 
                 # Link to report
                 helpText(a('More information on the app',
-                           href='http://rpubs.com/akselix/word_prediction', 
+                           href = "https://github.com/kevinn-12/Capstone", 
                            target = '_blank')
                 ),
                 
                 # Link to repo
                 helpText(a('Code repository',
-                           href='https://github.com/akselix/capstone_swiftkey/tree/master/shiny',
+                           href = "https://github.com/kevinn-12/Capstone",
                            target = '_blank')
                 ),
                 
