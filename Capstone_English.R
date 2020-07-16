@@ -93,26 +93,34 @@ NextWordPrediction <- function(input) {
                 
                 return(list(ans, head(dat,5)))
                 
-        } else if (nrow(dat) == 0 & word(input, 1) != "NA") {
-                assign("training",
-                       training %>%
-                               add_row(., Word = tolower(input), Frequency = + 1, N_gram = str_count(input, "\\S+"), 
-                                       Word_to_Predict = word(input, -1)) %>%
-                               group_by(., N_gram) %>%
-                               mutate(., Prop = Frequency/ sum(Frequency)) %>%
-                               data.frame(.),
-                       envir = .GlobalEnv)
-                
-                input_1 <-  Reduce(paste, word(input, 2:str_count(input,"\\S+")))
-                
-                return(NextWordPrediction(input_1))
-                
-        } else if (word(input, 1) == "NA") {
-                ans <- paste("Word not in dictionary. We added this to our database!")
-                
-                return(ans)
+        } else {
+                for (i in 2:str_count(input, "\\S+")) {
+                        input_1 <-  word(input, start = i, end =  str_count(input,"\\S+"))
+                        
+                        dat <- training %>%
+                                filter(., N_gram == str_count(input_1, "\\S+") + 1) %>%
+                                filter(grepl(paste("^", tolower(str_squish(input_1)), sep = ""), Word)) %>%
+                                arrange(., desc(Prop))
+                        if (nrow(dat) != 0) {
+                                val <- dat$Word_to_Predict[1]
+                                ans <- paste(str_squish(input), val)
+                                
+                                return(list(ans, head(dat,5)))
+                                
+                        } else if (nrow(dat) == 0 & i == str_count(input, "\\S+")) {
+                                assign("training",
+                                       training %>%
+                                               add_row(., Word = tolower(input), Frequency = + 1, N_gram = str_count(input, "\\S+"), 
+                                                       Word_to_Predict = word(input, -1)) %>%
+                                               group_by(., N_gram) %>%
+                                               mutate(., Prop = Frequency/ sum(Frequency)) %>%
+                                               data.frame(.),
+                                       envir = .GlobalEnv)
+                                
+                                ans <- paste("Word not in dictionary. We added this to our database!")
+                                
+                                return(ans)
+                        }
+                }
         }
 }
-
-NextWordPrediction("she was")
-
