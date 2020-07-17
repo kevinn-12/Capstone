@@ -60,7 +60,7 @@ shinyServer(function(input, output, session) {
                     return(ans)
                     
                 } else if (!nzchar(input$text)) {
-                    ans <- paste("Type something...")
+                    ans <- paste("Start typing!")
                     
                     return(ans)
                 }
