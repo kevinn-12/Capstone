@@ -107,15 +107,20 @@ NextWordPrediction <- function(input) {
                                 
                                 return(list(ans, head(dat,5)))
                                 
-                        } else if (nrow(dat) == 0 & i == str_count(input, "\\S+")) {
-                                assign("training",
-                                       training %>%
-                                               add_row(., Word = tolower(input), Frequency = + 1, N_gram = str_count(input, "\\S+"), 
-                                                       Word_to_Predict = word(input, -1)) %>%
-                                               group_by(., N_gram) %>%
-                                               mutate(., Prop = Frequency/ sum(Frequency)) %>%
-                                               data.frame(.),
-                                       envir = .GlobalEnv)
+                        } else if (nrow(dat) == 0 & i == str_count(input, "\\S+") & !(input %in% training$Word)) {
+                                
+                                for (i in str_count(input, "\\S+"):1) {
+                                        input_1 <-  word(input, start = 1, end =  i)
+                                        
+                                        assign("training",
+                                               training %>%
+                                                       add_row(., Word = tolower(input_1), Frequency = + 1, N_gram = str_count(input_1, "\\S+"), 
+                                                               Word_to_Predict = word(input_1, -1)) %>%
+                                                       group_by(., N_gram) %>%
+                                                       mutate(., Prop = Frequency/ sum(Frequency)) %>%
+                                                       data.frame(.),
+                                               envir = .GlobalEnv)
+                                }
                                 
                                 ans <- paste("Word not in dictionary. We added this to our database!")
                                 
