@@ -1,5 +1,4 @@
-library(stringr); library(tm); library(dplyr); library(tibble); library(reshape); library(caret); library(RWeka); library(LaF)
-library(jsonlite); library(purrr); library(data.table); library(tidyr); library(ggplot2); library(textcat); library(tidytext): library(qdap)
+library(stringr); library(tm); library(dplyr); library(tibble); library(reshape); library(RWeka); library(LaF); library(purrr); library(tidyr)
 
 # Importing and CLeaning Data
 if (! file.exists("Coursera-SwiftKey.zip")) {
