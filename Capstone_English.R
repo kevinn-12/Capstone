@@ -35,8 +35,6 @@ test <- dat_all %>%
 
 rm(dat_all)
 
-# Model
-
 token <- function(x) {
         NGramTokenizer(x, Weka_control(min = 1, max = 4))
 }
