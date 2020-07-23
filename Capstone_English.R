@@ -65,10 +65,18 @@ training <- training %>%
                Word_to_Predict = word(Word, -1)) %>%
         data.frame(.)
 
+# Exploratory Analysis
+top.plot <- training %>%
+        group_by(., N_gram) %>%
+        top_n(., 10, Prop) %>%
+        ggplot(., aes(x = reorder_within(Word_to_Predict, -Prop, N_gram), y = Prop, fill = as.factor(N_gram))) + 
+        geom_bar(stat="identity", position="dodge") + facet_wrap(~ N_gram, ncol = 2, scales = "free") + 
+        scale_y_continuous(labels = scales::percent) + theme_bw() + scale_x_reordered() + 
+        labs(title = "Top Predicted Words by N-gram", x = "Words", fill = "N-gram") + 
+        coord_flip()
+top.plot
 
 # Predictive Model
-
-## Basic Ngram Model
 NextWordPrediction <- function(input) {
         dat <- training %>%
                 filter(., N_gram == str_count(input, "\\S+") + 1) %>%
@@ -106,7 +114,7 @@ NextWordPrediction <- function(input) {
                                 
                                 return(list(ans, head(dat,5)))
                                 
-                        } else if (nrow(dat) == 0 & i == str_count(input, "\\S+") & !(input %in% training$Word)) {
+                        } else if (nrow(dat) == 0 & i == str_count(input, "\\S+")) {
                                 
                                 for (i in str_count(input, "\\S+"):1) {
                                         input_1 <-  word(input, start = 1, end =  i)
@@ -129,8 +137,37 @@ NextWordPrediction <- function(input) {
         }
 }
 
-NextWordPrediction("she")
+# Model Evaluation
+test <- test %>%
+        as.data.frame(.) %>%
+        DataframeSource(.) %>%
+        VCorpus(., readerControl = list(language = "en")) %>%
+        tm_map(., content_transformer(tolower)) %>%
+        tm_map(., content_transformer(removeNumbers)) %>%
+        tm_map(., content_transformer(stripWhitespace)) %>%
+        tm_map(., content_transformer(function(.) gsub("[^\x01-\x7F]+", "", .))) %>%
+        tm_map(., content_transformer(function(.) removePunctuation(., preserve_intra_word_contractions = T, preserve_intra_word_dashes = T)))%>%
+        tm_map(., content_transformer(PlainTextDocument)) %>%
+        DocumentTermMatrix(., control = list(tokenize = token))%>%
+        as.matrix(.) %>%
+        as.data.frame(.) %>%
+        gather(., Word, Frequency, names(.)) %>%
+        group_by(., Word) %>%
+        summarise(., Frequency = sum(Frequency)) %>%
+        ungroup(.) %>%
+        mutate(., N_gram = str_count(Word, "\\S+")) %>%
+        group_by(., N_gram) %>%
+        mutate(., Prop = Frequency/ sum(Frequency)) %>%
+        data.frame(.)
 
-grepl("^i\\b",c("i am","in the","it s"))
-grepl("^i",c("i am","in the","it s"))
+test$test <- 1
+for (i in 1:nrow(test)) {
+        # print(i) run as progress bar
+        word <- ifelse(test[i,3] == 1, test[i,1], word(test[i,1], start = 1, end = str_count(test[i,1],"\\S+")-1))
+        test[i,5] <- NextWordPrediction(word)[1]
+}
 
+check <- test %>%
+        mutate(., check = ifelse(Word == test, 1, 0)) %>%
+        summarise(., Accuracy = sum(check)/nrow(.))
+check
