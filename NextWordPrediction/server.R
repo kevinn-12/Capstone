@@ -6,7 +6,7 @@ shinyServer(function(input, output, session) {
     dat_reactive <<- reactive({
         dat %>%
             filter(., N_gram == str_count(input$text, "\\S+") + 1 & nzchar(input$text) & 
-                       grepl(paste("^", tolower(str_squish(input$text)), sep = ""), Word)) %>%
+                       grepl(paste("^", tolower(str_squish(input$text)), "\\b", sep = ""), Word)) %>%
             arrange(., desc(Prop))
     })
     
@@ -33,7 +33,7 @@ shinyServer(function(input, output, session) {
                 dat_reactive <- reactive({
                     dat %>%
                         filter(., N_gram == str_count(input_1, "\\S+") + 1 & nzchar(input_1) & 
-                                   grepl(paste("^", tolower(str_squish(input_1)), sep = ""), Word)) %>%
+                                   grepl(paste("^", tolower(str_squish(input_1)), "\\b", sep = ""), Word)) %>%
                         arrange(., desc(Prop))
                 })
                
@@ -42,7 +42,7 @@ shinyServer(function(input, output, session) {
 
                     return(val)
                     
-                } else if (nrow(dat_reactive()) == 0 & i == str_count(input$text, "\\S+") & nzchar(input$text) & !(input$text %in% dat$Word)) {
+                } else if (nrow(dat_reactive()) == 0 & i == str_count(input$text, "\\S+") & nzchar(input$text)) {
                     
                     for (i in str_count(input$text, "\\S+"):1) {
                         input_1 <-  word(input$text, start = 1, end =  i)
