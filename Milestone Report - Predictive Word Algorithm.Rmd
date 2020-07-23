@@ -76,9 +76,10 @@ training <- training %>%
         DataframeSource(.) %>%
         VCorpus(., readerControl = list(language = "en")) %>%
         tm_map(., content_transformer(tolower)) %>%
-        tm_map(., content_transformer(function(.) gsub("[^[:alnum:][:space:]'`]", " ", .))) %>%
         tm_map(., content_transformer(removeNumbers)) %>%
         tm_map(., content_transformer(stripWhitespace)) %>%
+        tm_map(., content_transformer(function(.) gsub("[^\x01-\x7F]+", "", .))) %>%
+        tm_map(., content_transformer(function(.) removePunctuation(., preserve_intra_word_contractions = T, preserve_intra_word_dashes = T)))%>%
         #tm_map(., removeWords, stopwords(kind = "en")) %>%
         #tm_map(., stemDocument, "en") %>% 
         tm_map(., content_transformer(PlainTextDocument)) %>%
@@ -104,6 +105,7 @@ During the cleaning we perform the following text-manipulations:
 + Remove punctuations
 + Remove numbers
 + Stripe white spaces
++ Remove non-ASCII characters
 
 Additional steps that I could have taken include:
 
@@ -111,7 +113,7 @@ Additional steps that I could have taken include:
 + Stem the data to reduce words to unify accross sentences.
 + Remove sparse words (words with low frequency) from the data as they won't play a high importance in the algorithm.
 
-Since stop words are key words in the language excluding them would't provide a very usefull prediction algorithm. While stemming the data is useful to create n-grams it provides to be a challenge in using stem words to predict a next word. Lastly, sparse words were kept to provide a bigger dictionary.
+Since stop words are key words in the language excluding them wouldn't provide a very usefull prediction algorithm. While stemming the data is useful to create n-grams it provides to be a challenge in using stem words to predict a next word. Lastly, sparse words were kept to provide a more complete dictionary.
 
 ### 3. Exploratory Analysis 
 
@@ -122,7 +124,9 @@ top.plot <- training %>%
         ggplot(., aes(x = reorder_within(Word_to_Predict, -Prop, N_gram), y = Prop, fill = as.factor(N_gram))) + 
         geom_bar(stat="identity", position="dodge") + facet_wrap(~ N_gram, ncol = 2, scales = "free") + 
         scale_y_continuous(labels = scales::percent) + theme_bw() + scale_x_reordered() + 
-        labs(title = "Top Words by N_gram", x = "Words", fill = "N_gram")
+        labs(title = "Top Predicted Words by N-gram", x = "Words", fill = "N-gram") + 
+        coord_flip()
+
 
 
 ```
@@ -131,7 +135,7 @@ top.plot <- training %>%
 top.plot
 ```
 
-### 3. Model
+### 4. Model
 
 The model used to predict the next word make use of the N_grams created. Quite simply if the user enters a word of length n, the NextWordPrediction function looks for words in the (n+1)-gram that matches those inputs and returns the last word in the n-gram with the highest occurance. To enable learning, once a input is called we update proportions accordingly. If no matches are found, the function tries matching with n-first word until n = 1. If no matches are found we add this to the dataset. 
 
@@ -144,7 +148,7 @@ The NextWordPrediction function looks for words in the 3-gram (n+1) that matches
 NextWordPrediction <- function(input) {
         dat <- training %>%
                 filter(., N_gram == str_count(input, "\\S+") + 1) %>%
-                filter(grepl(paste("^", tolower(str_squish(input)), sep = ""), Word)) %>%
+                filter(grepl(paste("^", tolower(str_squish(input)), "\\b", sep = ""), Word)) %>%
                 arrange(., desc(Prop))
         
         if (nrow(dat) != 0) {
@@ -170,7 +174,7 @@ NextWordPrediction <- function(input) {
                         
                         dat <- training %>%
                                 filter(., N_gram == str_count(input_1, "\\S+") + 1) %>%
-                                filter(grepl(paste("^", tolower(str_squish(input_1)), sep = ""), Word)) %>%
+                                filter(grepl(paste("^", tolower(str_squish(input_1)), "\\b", sep = ""), Word)) %>%
                                 arrange(., desc(Prop))
                         if (nrow(dat) != 0) {
                                 val <- dat$Word_to_Predict[1]
@@ -178,7 +182,7 @@ NextWordPrediction <- function(input) {
                                 
                                 return(list(ans, head(dat,5)))
                                 
-                        } else if (nrow(dat) == 0 & i == str_count(input, "\\S+") & !(input %in% training$Word)) {
+                        } else if (nrow(dat) == 0 & i == str_count(input, "\\S+")) {
                                 
                                 for (i in str_count(input, "\\S+"):1) {
                                         input_1 <-  word(input, start = 1, end =  i)
@@ -201,4 +205,48 @@ NextWordPrediction <- function(input) {
         }
 }
 ```
+
+### 4. Model Evaluation
+
+As an attempt to evaluate the model I propose applying the NextWordPrediction function to predict the test set. Since the creation of N-grams in the test set creates all possible combinations of words that arises from the test set, we can apply the NextWordPrediction function to all but the last word in n-gram and compare the original n-gram to the resulting answer from NextWordPrediction. This evaluation yields an accuracy of 47%.
+
+``` {r evaluation 1, cache = T}
+test <- test %>%
+        as.data.frame(.) %>%
+        DataframeSource(.) %>%
+        VCorpus(., readerControl = list(language = "en")) %>%
+        tm_map(., content_transformer(tolower)) %>%
+        tm_map(., content_transformer(removeNumbers)) %>%
+        tm_map(., content_transformer(stripWhitespace)) %>%
+        tm_map(., content_transformer(function(.) gsub("[^\x01-\x7F]+", "", .))) %>%
+        tm_map(., content_transformer(function(.) removePunctuation(., preserve_intra_word_contractions = T, preserve_intra_word_dashes = T)))%>%
+        tm_map(., content_transformer(PlainTextDocument)) %>%
+        DocumentTermMatrix(., control = list(tokenize = token))%>%
+        as.matrix(.) %>%
+        as.data.frame(.) %>%
+        gather(., Word, Frequency, names(.)) %>%
+        group_by(., Word) %>%
+        summarise(., Frequency = sum(Frequency)) %>%
+        ungroup(.) %>%
+        mutate(., N_gram = str_count(Word, "\\S+")) %>%
+        group_by(., N_gram) %>%
+        mutate(., Prop = Frequency/ sum(Frequency)) %>%
+        data.frame(.)
+
+test$test <- 1
+for (i in 1:nrow(test)) {
+        # print(i) run as progress bar
+        word <- ifelse(test[i,3] == 1, test[i,1], word(test[i,1], start = 1, end = str_count(test[i,1],"\\S+")-1))
+        test[i,5] <- NextWordPrediction(word)[1]
+}
+
+check <- test %>%
+        mutate(., check = ifelse(Word == test, 1, 0)) %>%
+        summarise(., Accuracy = sum(check)/nrow(.))
+check
+
+```
+
+
+
 
