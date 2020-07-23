@@ -1,4 +1,5 @@
 library(stringr); library(tm); library(dplyr); library(tibble); library(reshape); library(RWeka); library(LaF); library(purrr); library(tidyr)
+library(data.table)
 
 # Importing and CLeaning Data
 if (! file.exists("Coursera-SwiftKey.zip")) {
@@ -44,9 +45,10 @@ training <- training %>%
         DataframeSource(.) %>%
         VCorpus(., readerControl = list(language = "en")) %>%
         tm_map(., content_transformer(tolower)) %>%
-        tm_map(., content_transformer(function(.) gsub("[^[:alnum:][:space:]'`]", " ", .))) %>%
         tm_map(., content_transformer(removeNumbers)) %>%
         tm_map(., content_transformer(stripWhitespace)) %>%
+        tm_map(., content_transformer(function(.) gsub("[^\x01-\x7F]+", "", .))) %>%
+        tm_map(., content_transformer(function(.) removePunctuation(., preserve_intra_word_contractions = T, preserve_intra_word_dashes = T))) %>%
         #tm_map(., removeWords, stopwords(kind = "en")) %>%
         #tm_map(., stemDocument, "en") %>% 
         tm_map(., content_transformer(PlainTextDocument)) %>%
@@ -70,7 +72,7 @@ training <- training %>%
 NextWordPrediction <- function(input) {
         dat <- training %>%
                 filter(., N_gram == str_count(input, "\\S+") + 1) %>%
-                filter(grepl(paste("^", tolower(str_squish(input)), sep = ""), Word)) %>%
+                filter(grepl(paste("^", tolower(str_squish(input)), "\\b", sep = ""), Word)) %>%
                 arrange(., desc(Prop))
         
         if (nrow(dat) != 0) {
@@ -96,7 +98,7 @@ NextWordPrediction <- function(input) {
                         
                         dat <- training %>%
                                 filter(., N_gram == str_count(input_1, "\\S+") + 1) %>%
-                                filter(grepl(paste("^", tolower(str_squish(input_1)), sep = ""), Word)) %>%
+                                filter(grepl(paste("^", tolower(str_squish(input_1)), "\\b", sep = ""), Word)) %>%
                                 arrange(., desc(Prop))
                         if (nrow(dat) != 0) {
                                 val <- dat$Word_to_Predict[1]
@@ -126,3 +128,9 @@ NextWordPrediction <- function(input) {
                 }
         }
 }
+
+NextWordPrediction("she")
+
+grepl("^i\\b",c("i am","in the","it s"))
+grepl("^i",c("i am","in the","it s"))
+
