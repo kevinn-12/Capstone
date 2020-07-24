@@ -9,3 +9,4 @@ The aim of this project is to create a predictive word algorithm and deploy this
 + **[NextWordPrediction](https://github.com/kevinn-12/Capstone/tree/master/NextWordPrediction)**: Contains files regarding ShinyApp setup.
 + **[Milestone-Report---Predictive-Word-Algorithm](https://htmlpreview.github.io/?https://github.com/kevinn-12/Capstone/blob/master/Milestone-Report---Predictive-Word-Algorithm.html)**: Contains executive summary analysis.
 + **[Capstone_English.R](https://github.com/kevinn-12/Capstone/blob/master/Capstone_English.R)**: Contains raw code of the project, including data cleaning, analysis, and terminal interactive version of NextWordPrediction app.
++ **[Pitch Presentation](https://rpubs.com/kevinn_12/642522)**
